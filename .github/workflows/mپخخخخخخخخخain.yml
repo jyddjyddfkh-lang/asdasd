@@ -1,0 +1,25 @@
+name: Build QuestMap Browser
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test repository
+        run: |
+          echo "QuestMap Browser build started"
+          echo "Repository:"
+          pwd
+          echo "Files:"
+          find . -maxdepth 2 -type f | sort
+
+      - name: Check QPM project
+        run: |
+          test -f qpm.json && echo "qpm.json found" || echo "qpm.json NOT found"
+          test -f CMakeLists.txt && echo "CMakeLists.txt found" || echo "CMakeLists.txt NOT found"
