@@ -1,0 +1,94 @@
+name: Build QuestMap Browser
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+  pull_request:
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build unzip wget
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK / NDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK
+        run: |
+          sdkmanager "platform-tools" "ndk;25.2.9519653"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/25.2.9519653" >> "$GITHUB_ENV"
+
+      - name: Install QPM
+        shell: bash
+        run: |
+          curl -L \
+            -o qpm \
+            https://github.com/QuestPackageManager/QPM.CLI/releases/latest/download/qpm-linux-x64
+          chmod +x qpm
+          sudo mv qpm /usr/local/bin/qpm
+          qpm --version
+
+      - name: Verify tools
+        run: |
+          cmake --version
+          ninja --version
+          adb version
+          qpm --version
+
+      - name: QPM Doctor
+        run: |
+          qpm doctor
+
+      - name: Restore dependencies
+        run: |
+          qpm restore
+
+      - name: Build mod
+        run: |
+          qpm s build
+
+      - name: Build QMOD
+        run: |
+          qpm s qmod
+
+      - name: Find QMOD
+        shell: bash
+        run: |
+          echo "Searching for QMOD..."
+          find . -type f -name "*.qmod" -print
+
+      - name: Upload QMOD
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuestMapBrowser-QMOD
+          path: |
+            **/*.qmod
+          if-no-files-found: error
+
+      - name: Upload build files
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuestMapBrowser-Build
+          path: |
+            build/**
+            **/*.so
+          if-no-files-found: warn
