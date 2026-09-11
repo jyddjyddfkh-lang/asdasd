@@ -1,0 +1,165 @@
+name: Build QuestMap Browser
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            curl \
+            jq \
+            file \
+            git
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK
+        run: |
+          sdkmanager "platform-tools" "ndk;25.2.9519653"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/25.2.9519653" >> "$GITHUB_ENV"
+
+      - name: Download real QPM release asset
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          API_URL="https://api.github.com/repos/QuestPackageManager/QPM.CLI/releases/latest"
+
+          echo "Querying GitHub Release API..."
+
+          ASSET_URL="$(
+            curl -fsSL \
+              -H "Accept: application/vnd.github+json" \
+              "$API_URL" |
+            jq -r '
+              .assets[]
+              | select(
+                  (.name | test("linux"; "i"))
+                  and
+                  (.name | test("x64|x86_64|amd64"; "i"))
+                )
+              | .browser_download_url
+            ' |
+            head -n 1
+          )"
+
+          if [ -z "$ASSET_URL" ] || [ "$ASSET_URL" = "null" ]; then
+            echo "ERROR: Could not find a Linux x64 QPM release asset."
+            echo "Available assets:"
+            curl -fsSL \
+              -H "Accept: application/vnd.github+json" \
+              "$API_URL" |
+              jq -r '.assets[].name'
+            exit 1
+          fi
+
+          echo "Selected QPM asset:"
+          echo "$ASSET_URL"
+
+          curl -fL \
+            -H "Accept: application/octet-stream" \
+            "$ASSET_URL" \
+            -o qpm-download
+
+          file qpm-download
+
+          mkdir -p qpm-extract
+
+          if file qpm-download | grep -qi 'zip archive'; then
+            unzip -o qpm-download -d qpm-extract
+          elif file qpm-download | grep -qi 'gzip compressed'; then
+            tar -xzf qpm-download -C qpm-extract
+          elif file qpm-download | grep -qi 'ELF'; then
+            cp qpm-download qpm-extract/qpm
+          else
+            echo "ERROR: Unknown QPM release format"
+            exit 1
+          fi
+
+          QPM_BIN="$(find qpm-extract -type f -name 'qpm' -o -type f -name 'qpm.exe' | head -n 1)"
+
+          if [ -z "$QPM_BIN" ]; then
+            echo "ERROR: QPM executable was not found."
+            find qpm-extract -maxdepth 3 -type f -print
+            exit 1
+          fi
+
+          chmod +x "$QPM_BIN"
+          sudo install -m 0755 "$QPM_BIN" /usr/local/bin/qpm
+
+          qpm --version
+
+      - name: Verify environment
+        run: |
+          echo "=== CMake ==="
+          cmake --version
+
+          echo "=== Ninja ==="
+          ninja --version
+
+          echo "=== QPM ==="
+          qpm --version
+
+          echo "=== NDK ==="
+          echo "$ANDROID_NDK_HOME"
+
+      - name: QPM Doctor
+        run: |
+          qpm doctor
+
+      - name: Restore dependencies
+        run: |
+          qpm restore
+
+      - name: Build
+        run: |
+          qpm s build
+
+      - name: Build QMOD
+        run: |
+          qpm s qmod
+
+      - name: Show outputs
+        shell: bash
+        run: |
+          echo "=== QMOD ==="
+          find . -type f -name "*.qmod" -print
+
+          echo "=== SO ==="
+          find . -type f -name "*.so" -print
+
+      - name: Upload QMOD
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuestMapBrowser-QMOD
+          path: "**/*.qmod"
+          if-no-files-found: error
+
+      - name: Upload SO
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuestMapBrowser-Native
+          path: "**/*.so"
+          if-no-files-found: warn
