@@ -1,0 +1,48 @@
+      - name: Install QPM from real GitHub Release asset
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          QPM_VERSION="v1.5.11"
+          ASSET_NAME="qpm-linux-x64"
+
+          echo "Getting release information from GitHub API..."
+
+          API_URL="https://api.github.com/repos/QuestPackageManager/QPM.CLI/releases/tags/${QPM_VERSION}"
+
+          DOWNLOAD_URL="$(
+            curl -fsSL \
+              -H "Accept: application/vnd.github+json" \
+              "$API_URL" |
+            jq -r --arg NAME "$ASSET_NAME" '
+              .assets[]
+              | select(.name == $NAME)
+              | .browser_download_url
+            '
+          )"
+
+          if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" = "null" ]; then
+            echo "ERROR: Asset not found: $ASSET_NAME"
+            exit 1
+          fi
+
+          echo "Found asset:"
+          echo "$DOWNLOAD_URL"
+
+          curl -fL \
+            -H "Accept: application/octet-stream" \
+            "$DOWNLOAD_URL" \
+            -o qpm
+
+          chmod +x qpm
+
+          echo "Downloaded QPM:"
+          file qpm
+
+          echo "Testing QPM:"
+          ./qpm --version
+
+          sudo install -m 0755 qpm /usr/local/bin/qpm
+
+          echo "Installed:"
+          qpm --version
