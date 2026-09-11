@@ -1,0 +1,37 @@
+{
+  "$schema": "https://raw.githubusercontent.com/QuestPackageManager/QPM.Package/refs/heads/main/qpm.shared.schema.json",
+  "config": {
+    "version": "0.1.0",
+    "sharedDir": "shared",
+    "dependenciesDir": "extern",
+    "info": {
+      "name": "QuestMap Browser",
+      "id": "questmap-browser",
+      "version": "0.1.0",
+      "url": "https://example.invalid/questmap-browser",
+      "additionalData": {
+        "overrideSoName": "libquestmap-browser.so",
+        "cmake": true
+      }
+    },
+    "workspace": {
+      "scripts": {
+        "build": ["pwsh ./scripts/build.ps1 $0?"],
+        "qmod": ["pwsh ./scripts/build.ps1 $0?", "pwsh ./scripts/createqmod.ps1"],
+        "validate": ["pwsh ./scripts/validate.ps1"]
+      },
+      "ndk": "^28.2.13676358",
+      "qmodIncludeDirs": [],
+      "qmodIncludeFiles": [],
+      "qmodOutput": null
+    },
+    "dependencies": [
+      {"id":"beatsaber-hook","versionRange":"^6.4.2","additionalData":{}},
+      {"id":"scotland2","versionRange":"^0.1.6","additionalData":{"includeQmod":false}},
+      {"id":"paper2_scotland2","versionRange":"^4.6.4","additionalData":{}},
+      {"id":"custom-types","versionRange":"^0.18.3","additionalData":{}},
+      {"id":"bsml","versionRange":"^0.4.55","additionalData":{}},
+      {"id":"songcore","versionRange":"^1.1.26","additionalData":{}}
+    ]
+  }
+}

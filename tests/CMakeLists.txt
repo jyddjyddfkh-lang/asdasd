@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.16)
+project(qmb_tests LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 20)
+add_executable(qmb_test test_map_generator.cpp ../src/map_generator.cpp)
+target_include_directories(qmb_test PRIVATE ../include)
